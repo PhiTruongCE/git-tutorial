@@ -470,7 +470,7 @@ def find_configure_space(obstacles, robot_radius):
         j = j + 1
     return cspaces
 
-def find_configure_space_update(obstacles, robot_radius):
+def find_configure_space_update_1(obstacles, robot_radius):
     cspaces = []
     for obstacle in obstacles:
         obstacle.pop()
@@ -526,6 +526,59 @@ def find_configure_space_update(obstacles, robot_radius):
             i = i + 1
     return cspaces
 
+def find_configure_space_update_2(obstacles, robot_radius):
+    cspaces = []
+    for obstacle in obstacles:
+        obstacle.pop()
+        len_ob_temp = len(obstacle)
+        cspace = []
+        extend_cspace = []
+        if (left_hand_direction(obstacle)):
+            for i in range(len_ob_temp):
+                nvector = normal_vector((obstacle[i], obstacle[(i + 1)%len_ob_temp]), robot_radius)
+                extend_cspace.append(np.add(obstacle[i], nvector))
+                extend_cspace.append(np.add(obstacle[(i + 1)%len_ob_temp], nvector))
+        else:
+            for i in range(len_ob_temp):
+                nvector = normal_vector((obstacle[(i + 1)%len_ob_temp], obstacle[i]), robot_radius)
+                extend_cspace.append(np.add(obstacle[i], nvector))
+                extend_cspace.append(np.add(obstacle[(i + 1)%len_ob_temp], nvector))
+
+        for i in range(len_ob_temp):
+            a,b,c = line_from_points(obstacle[(i + 1)%len_ob_temp],obstacle[i - 1])
+            if (point_dist(obstacle[i],obstacle[i-1]) <= point_dist(obstacle[i],obstacle[(i+1)%len_ob_temp])):
+                vector = unit_vector((obstacle[i][0] - obstacle[(i+1)%len_ob_temp][0],obstacle[i][1] - obstacle[(i+1)%len_ob_temp][1]))*(point_dist(obstacle[i],obstacle[(i+1)%len_ob_temp]) - point_dist(obstacle[i],obstacle[i-1]))
+                temp_intersection_point = line_intersection([np.add(obstacle[(i+1)%len_ob_temp], vector),np.add(extend_cspace[2*i + 1],vector)],
+                [obstacle[i-1],extend_cspace[2*i - 2]])
+                sign2 = a*extend_cspace[2*i - 2][0] + b*extend_cspace[2*i - 2][1] - c
+            else:
+                vector = unit_vector((obstacle[i][0] - obstacle[i - 1][0],obstacle[i][1] - obstacle[i - 1][1]))*( - point_dist(obstacle[i],obstacle[(i+1)%len_ob_temp]) + point_dist(obstacle[i],obstacle[i-1]))
+                temp_intersection_point = line_intersection([obstacle[(i+1)%len_ob_temp],extend_cspace[2*i + 1]],
+                [np.add(obstacle[i-1],vector),np.add(extend_cspace[2*i - 2],vector)])
+                sign2 = a*extend_cspace[2*i + 1][0] + b*extend_cspace[2*i + 1][1] - c
+
+            
+            
+            sign1 = a*temp_intersection_point[0] + b*temp_intersection_point[1] - c
+            
+
+            if (sign1*sign2 > 0):
+                cspace.append(line_intersection([extend_cspace[2*i],extend_cspace[2*i + 1]], [extend_cspace[2*i - 1],extend_cspace[2*i - 2]]))
+            else:
+                lim_ls = cal_bisector(obstacle[i - 1], obstacle[i],obstacle[(i + 1)%len_ob_temp], robot_radius)
+                
+                cspace.append(line_intersection(lim_ls, [extend_cspace[2*i - 1],extend_cspace[2*i - 2]]))
+                cspace.append(line_intersection(lim_ls, [extend_cspace[2*i],extend_cspace[2*i + 1]]))
+        cspace.append(cspace[0])
+        cspaces.append(cspace)
+
+    for cspace in cspaces:
+        i = 1
+        for pt in cspace:
+            plt.plot(pt[0], pt[1], ".b")
+            plt.text(pt[0], pt[1], ",{0}".format(i))
+            i = i + 1
+    return cspaces
 
 def normal_vector(linesegment, robot_radius):
     ''' this function is to find a  normal vector of a line segment '''
@@ -637,21 +690,28 @@ def is_safe_point(point,obstacles,robot_radius):
     return True
 
 def left_hand_direction(obstacle):
+    tolerance = 0.000001
     vector_a = (obstacle[1][0] - obstacle[0][0],obstacle[1][1] - obstacle[0][1])
+    if (math.isclose(vector_a[0],0,rel_tol=tolerance)):
+        vector_a = (tolerance,vector_a[1])
+    elif (math.isclose(vector_a[1],0,rel_tol=tolerance)):
+        vector_a = (vector_a[0],tolerance)
+
     i = 1
     len_ob = len(obstacle)
     while(i < len_ob):
         vector_b = (obstacle[i + 1][0] - obstacle[i][0],obstacle[i + 1][1] - obstacle[i][1])
+        if (math.isclose(vector_b[0],0,rel_tol=tolerance)):
+            vector_b = (tolerance,vector_b[1])
+        elif (math.isclose(vector_b[1],0,rel_tol=tolerance)):
+            vector_b = (vector_b[0],tolerance)
+            
         if(vector_b[0]*vector_a[0] < 0 or vector_b[1]*vector_a[1] < 0):
             break
         else:
             vector_a = tuple(vector_b)
             i = i + 1
 
-    
-    print(vector_a)
-    print(vector_b)
-    system("pause")
 
     if(vector_a[0] > 0 and vector_a[1] > 0):        #sang phai
         if (vector_b[0] > 0 and vector_b[1] < 0):
